@@ -1,0 +1,19 @@
+name: mpd-ui
+version: 0.1.0
+
+authors:
+  - mamantoha <anton.maminov@gmail.com>
+
+targets:
+  mpd-ui:
+    main: src/mpd_ui.cr
+
+dependencies:
+  uing:
+    github: kojix2/uing
+  crystal_mpd:
+    github: mamantoha/crystal_mpd
+
+crystal: '>= 1.19.1'
+
+license: MIT
