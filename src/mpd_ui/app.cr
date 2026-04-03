@@ -15,8 +15,8 @@ module MPDUI
     @subtitle_label : UIng::Label?
     @time_label : UIng::Label?
     @seek_slider : UIng::Slider?
-    @shuffle_button : UIng::Button?
-    @repeat_button : UIng::Button?
+    @shuffle_button : ToggleButton?
+    @repeat_button : ToggleButton?
     @image_view : UIng::ImageView?
     @blank_image : UIng::Image?
     @cover_image : UIng::Image?
@@ -87,22 +87,22 @@ module MPDUI
       play_pause_button = UIng::Button.new(MEDIA_CONTROL_SYMBOLS[:play])
       next_button = UIng::Button.new(MEDIA_CONTROL_SYMBOLS[:next])
 
-      shuffle_button = UIng::Button.new(MEDIA_CONTROL_SYMBOLS[:shuffle])
-      repeat_button = UIng::Button.new(MEDIA_CONTROL_SYMBOLS[:repeat])
+      shuffle_button = ToggleButton.new(MEDIA_CONTROL_SYMBOLS[:shuffle])
+      repeat_button = ToggleButton.new(MEDIA_CONTROL_SYMBOLS[:repeat])
 
       prev_button.on_clicked { mpd_action { |c| c.previous } }
       play_pause_button.on_clicked { toggle_play_pause }
       next_button.on_clicked { mpd_action { |c| c.next } }
 
-      shuffle_button.on_clicked { toggle_random }
-      repeat_button.on_clicked { toggle_repeat }
+      shuffle_button.on_toggled { mpd_action { |c| c.random(shuffle_button.active) } }
+      repeat_button.on_toggled { mpd_action { |c| c.repeat(repeat_button.active) } }
 
       btn_box = UIng::Box.new(:horizontal, padded: true)
-      btn_box.append(shuffle_button)
+      btn_box.append(shuffle_button.area)
       btn_box.append(prev_button)
       btn_box.append(play_pause_button)
       btn_box.append(next_button)
-      btn_box.append(repeat_button)
+      btn_box.append(repeat_button.area)
 
       title_label = UIng::Label.new("")
       subtitle_label = UIng::Label.new("")
@@ -382,17 +382,9 @@ module MPDUI
       end
     end
 
-    private def toggle_random : Nil
-      mpd_action { |c| c.random(!@random) }
-    end
-
-    private def toggle_repeat : Nil
-      mpd_action { |c| c.repeat(!@repeat) }
-    end
-
     private def sync_toggle_buttons : Nil
-      @shuffle_button.try(&.text = @random ? "[#{MEDIA_CONTROL_SYMBOLS[:shuffle]}]" : MEDIA_CONTROL_SYMBOLS[:shuffle])
-      @repeat_button.try(&.text = @repeat ? "[#{MEDIA_CONTROL_SYMBOLS[:repeat]}]" : MEDIA_CONTROL_SYMBOLS[:repeat])
+      @shuffle_button.try(&.active = @random)
+      @repeat_button.try(&.active = @repeat)
     end
 
     private def mpd_action(& : MPD::Client -> Nil) : Nil
