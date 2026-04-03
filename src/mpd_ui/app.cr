@@ -2,8 +2,9 @@ require "uing"
 
 module MPDUI
   class App
+    COVER_SIZE    = 80
     WINDOW_TITLE  = "Crystal MPD"
-    WINDOW_WIDTH  = 560
+    WINDOW_WIDTH  = 620
     WINDOW_HEIGHT = 100
 
     @settings : Settings
@@ -14,12 +15,24 @@ module MPDUI
     @subtitle_label : UIng::Label?
     @time_label : UIng::Label?
     @seek_slider : UIng::Slider?
+    @image_view : UIng::ImageView?
+    @blank_image : UIng::Image?
+    @cover_image : UIng::Image?
+    @current_file : String = ""
     @client : MPD::Client?
     @callback_client : MPD::Client?
     @callback_thread : Thread?
     @elapsed : Float64 = 0.0
     @duration : Float64 = 0.0
     @seeking : Bool = false
+
+    MEDIA_CONTROL_SYMBOLS = {
+      play:  "▶",
+      pause: "⏸",
+      stop:  "■",
+      prev:  "⏮",
+      next:  "⏭",
+    }
 
     def initialize
       @settings = Settings.load
@@ -35,6 +48,8 @@ module MPDUI
     ensure
       @client.try(&.disconnect)
       @callback_client.try(&.disconnect)
+      @blank_image.try(&.free)
+      @cover_image.try(&.free)
       UIng.uninit
     end
 
@@ -55,9 +70,15 @@ module MPDUI
     private def build_ui : Nil
       window = UIng::Window.new(WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT, menubar: true, margined: true)
 
-      prev_button = UIng::Button.new("|<")
-      play_pause_button = UIng::Button.new("▶")
-      next_button = UIng::Button.new(">|")
+      blank_pixels = Bytes.new(COVER_SIZE * COVER_SIZE * 4) { |i| i % 4 == 3 ? 255_u8 : 80_u8 }
+      blank_image = UIng::Image.new(COVER_SIZE, COVER_SIZE)
+      blank_image.append(blank_pixels, COVER_SIZE, COVER_SIZE, COVER_SIZE * 4)
+      @blank_image = blank_image
+      image_view = UIng::ImageView.new(blank_image, :fit)
+
+      prev_button = UIng::Button.new(MEDIA_CONTROL_SYMBOLS[:prev])
+      play_pause_button = UIng::Button.new(MEDIA_CONTROL_SYMBOLS[:play])
+      next_button = UIng::Button.new(MEDIA_CONTROL_SYMBOLS[:next])
 
       prev_button.on_clicked { mpd_action { |c| c.previous } }
       play_pause_button.on_clicked { toggle_play_pause }
@@ -76,6 +97,7 @@ module MPDUI
       info_box.append(subtitle_label)
 
       main_row = UIng::Box.new(:horizontal, padded: true)
+      main_row.append(image_view)
       main_row.append(btn_box)
       main_row.append(info_box, stretchy: true)
 
@@ -118,8 +140,10 @@ module MPDUI
       @subtitle_label = subtitle_label
       @time_label = time_label
       @seek_slider = seek_slider
+      @image_view = image_view
 
       connect
+      load_cover_png
 
       # Repeating 1-second timer to keep the progress bar moving smoothly
       UIng.timer(1000) do
@@ -184,7 +208,7 @@ module MPDUI
       @elapsed = status.try(&.[]?("elapsed")).try(&.to_f?) || 0.0
       @duration = status.try(&.[]?("duration")).try(&.to_f?) || 0.0
 
-      @play_pause_button.try(&.text = state == "play" ? "⏸" : "▶")
+      @play_pause_button.try(&.text = state == "play" ? MEDIA_CONTROL_SYMBOLS[:pause] : MEDIA_CONTROL_SYMBOLS[:play])
 
       if song
         file = song["file"]?
@@ -196,7 +220,13 @@ module MPDUI
 
         @title_label.try(&.text = title)
         @subtitle_label.try(&.text = subtitle)
+
+        if file && file != @current_file
+          @current_file = file
+        end
       else
+        @current_file = ""
+        @image_view.try(&.image = @blank_image)
         @title_label.try(&.text = state == "stop" ? "Stopped" : "No track")
         @subtitle_label.try(&.text = "")
       end
@@ -207,7 +237,7 @@ module MPDUI
     end
 
     private def sync_state(state : String) : Nil
-      @play_pause_button.try(&.text = state == "play" ? "⏸" : "▶")
+      @play_pause_button.try(&.text = state == "play" ? MEDIA_CONTROL_SYMBOLS[:pause] : MEDIA_CONTROL_SYMBOLS[:play])
     end
 
     private def update_progress : Nil
@@ -224,6 +254,33 @@ module MPDUI
     private def format_time(seconds : Float64) : String
       t = seconds.to_i
       "#{t // 60}:#{(t % 60).to_s.rjust(2, '0')}"
+    end
+
+    private def load_cover_png : Nil
+      path = File.join(__DIR__, "..", "..", "cover.png")
+      return unless File.exists?(path)
+
+      canvas = StumpyPNG.read(path)
+      width = canvas.width.to_i32
+      height = canvas.height.to_i32
+
+      pixels = Bytes.new(width * height * 4)
+      (0...height).each do |y|
+        (0...width).each do |x|
+          offset = (y * width + x) * 4
+          r, g, b, a = canvas[x, y].to_rgba
+          pixels[offset] = r.to_u8
+          pixels[offset + 1] = g.to_u8
+          pixels[offset + 2] = b.to_u8
+          pixels[offset + 3] = a.to_u8
+        end
+      end
+
+      image = UIng::Image.new(width, height)
+      image.append(pixels, width, height, width * 4)
+      @cover_image.try(&.free)
+      @cover_image = image
+      @image_view.try(&.image = image)
     end
 
     private def mpd_action(& : MPD::Client -> Nil) : Nil

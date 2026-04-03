@@ -13,6 +13,8 @@ dependencies:
     github: kojix2/uing
   crystal_mpd:
     github: mamantoha/crystal_mpd
+  stumpy_png:
+    github: stumpycr/stumpy_png
 
 crystal: '>= 1.19.1'
 

@@ -4,6 +4,14 @@ shards:
     git: https://github.com/mamantoha/crystal_mpd.git
     version: 1.0.2
 
+  stumpy_core:
+    git: https://github.com/stumpycr/stumpy_core.git
+    version: 1.9.1
+
+  stumpy_png:
+    git: https://github.com/stumpycr/stumpy_png.git
+    version: 5.0.1
+
   uing:
     git: https://github.com/kojix2/uing.git
     version: 0.0.6
