@@ -3,7 +3,7 @@ require "uing"
 module MPDUI
   class App
     COVER_SIZE    = 120
-    NAME = "MPD libui example"
+    NAME          = "MPD libui example"
     WINDOW_TITLE  = "Crystal MPD"
     WINDOW_WIDTH  = 640
     WINDOW_HEIGHT = 600

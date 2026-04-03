@@ -28,6 +28,8 @@ module MPDUI
       elsif new_size < old_size
         (new_size...old_size).each { model.row_deleted(new_size) }
       end
+
+      scroll_to_active
     end
 
     def on_play(&block : String -> Nil) : Nil
@@ -44,6 +46,22 @@ module MPDUI
       @model = nil
       @table = nil
       @handler = nil
+    end
+
+    private def scroll_to_active : Nil
+      table = @table
+      return unless table
+      idx = @songs.index(&.[:active])
+      return unless idx
+
+      scrolled = UIng::LibUI.control_handle(table.to_unsafe.as(Pointer(UIng::LibUI::Control)))
+      tree_view = LibGTK.gtk_bin_get_child(scrolled)
+      return if tree_view.null?
+
+      path = LibGTK.gtk_tree_path_new_from_string(idx.to_s)
+      return if path.null?
+      LibGTK.gtk_tree_view_scroll_to_cell(tree_view, path, Pointer(Void).null, 1, 0.5_f32, 0.0_f32)
+      LibGTK.gtk_tree_path_free(path)
     end
 
     private def build_widget : UIng::Box
