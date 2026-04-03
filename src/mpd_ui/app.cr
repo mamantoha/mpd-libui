@@ -4,8 +4,8 @@ module MPDUI
   class App
     COVER_SIZE    = 80
     WINDOW_TITLE  = "Crystal MPD"
-    WINDOW_WIDTH  = 620
-    WINDOW_HEIGHT = 100
+    WINDOW_WIDTH  = 640
+    WINDOW_HEIGHT = 480
 
     @settings : Settings
     @settings_window : SettingsWindow
@@ -113,7 +113,6 @@ module MPDUI
 
       main_row = UIng::Box.new(:horizontal, padded: true)
       main_row.append(image_view, stretchy: true)
-      main_row.append(btn_box)
       main_row.append(info_box, stretchy: true)
 
       seek_slider = UIng::Slider.new(0, 100)
@@ -141,6 +140,7 @@ module MPDUI
 
       root = UIng::Box.new(:vertical, padded: true)
       root.append(main_row, stretchy: true)
+      root.append(btn_box)
       root.append(progress_row)
 
       window.child = root
