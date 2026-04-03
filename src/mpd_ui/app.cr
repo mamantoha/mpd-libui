@@ -217,18 +217,35 @@ module MPDUI
         cb.on_callback do |event, state|
           case event
           when .song?
-            UIng.queue_main { refresh_status; load_playlist }
+            UIng.queue_main do
+              refresh_status
+              load_playlist
+            end
           when .state?
-            UIng.queue_main { sync_state(state) }
+            UIng.queue_main do
+              sync_state(state)
+            end
           when .random?
-            UIng.queue_main { @random = state == "1"; sync_toggle_buttons }
+            UIng.queue_main do
+              @random = state == "1"
+              sync_toggle_buttons
+            end
           when .repeat?
-            UIng.queue_main { @repeat = state == "1"; sync_toggle_buttons }
+            UIng.queue_main do
+              @repeat = state == "1"
+              sync_toggle_buttons
+            end
           when .playlist?
-            UIng.queue_main { load_playlist }
+            UIng.queue_main do
+              load_playlist
+            end
           when .elapsed?
-            elapsed = state.to_f?
-            UIng.queue_main { @elapsed = elapsed.not_nil!; update_progress } if elapsed
+            if elapsed = state.to_f?
+              UIng.queue_main do
+                @elapsed = elapsed.not_nil!
+                update_progress
+              end
+            end
           end
         end
         @callback_client = cb
