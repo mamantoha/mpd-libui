@@ -2,8 +2,8 @@ require "uing"
 
 module MPDUI
   class App
-    WINDOW_TITLE = "Crystal MPD"
-    WINDOW_WIDTH = 560
+    WINDOW_TITLE  = "Crystal MPD"
+    WINDOW_WIDTH  = 560
     WINDOW_HEIGHT = 100
 
     @settings : Settings
@@ -13,12 +13,13 @@ module MPDUI
     @title_label : UIng::Label?
     @subtitle_label : UIng::Label?
     @time_label : UIng::Label?
-    @progress_bar : UIng::ProgressBar?
+    @seek_slider : UIng::Slider?
     @client : MPD::Client?
     @callback_client : MPD::Client?
     @callback_thread : Thread?
     @elapsed : Float64 = 0.0
     @duration : Float64 = 0.0
+    @seeking : Bool = false
 
     def initialize
       @settings = Settings.load
@@ -54,20 +55,20 @@ module MPDUI
     private def build_ui : Nil
       window = UIng::Window.new(WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT, menubar: true, margined: true)
 
-      prev_button       = UIng::Button.new("|<")
+      prev_button = UIng::Button.new("|<")
       play_pause_button = UIng::Button.new("▶")
-      next_button       = UIng::Button.new(">|")
+      next_button = UIng::Button.new(">|")
 
-      prev_button.on_clicked       { mpd_action { |c| c.previous } }
+      prev_button.on_clicked { mpd_action { |c| c.previous } }
       play_pause_button.on_clicked { toggle_play_pause }
-      next_button.on_clicked       { mpd_action { |c| c.next } }
+      next_button.on_clicked { mpd_action { |c| c.next } }
 
       btn_box = UIng::Box.new(:horizontal, padded: true)
       btn_box.append(prev_button)
       btn_box.append(play_pause_button)
       btn_box.append(next_button)
 
-      title_label    = UIng::Label.new("")
+      title_label = UIng::Label.new("")
       subtitle_label = UIng::Label.new("")
 
       info_box = UIng::Box.new(:vertical, padded: false)
@@ -78,12 +79,27 @@ module MPDUI
       main_row.append(btn_box)
       main_row.append(info_box, stretchy: true)
 
-      progress_bar = UIng::ProgressBar.new
-      progress_bar.value = 0
+      seek_slider = UIng::Slider.new(0, 100)
+      seek_slider.value = 0
+      seek_slider.has_tool_tip = false
       time_label = UIng::Label.new("0:00 / 0:00")
 
+      seek_slider.on_changed do |pct|
+        # Only update the time label while dragging; suppress timer-driven updates
+        @seeking = true
+        target = @duration * pct / 100.0
+        @time_label.try(&.text = "#{format_time(target)} / #{format_time(@duration)}")
+      end
+
+      seek_slider.on_released do |pct|
+        @seeking = false
+        target = @duration * pct / 100.0
+        @elapsed = target
+        mpd_action { |c| c.seekcur(target.to_i) }
+      end
+
       progress_row = UIng::Box.new(:horizontal, padded: true)
-      progress_row.append(progress_bar, stretchy: true)
+      progress_row.append(seek_slider, stretchy: true)
       progress_row.append(time_label)
 
       root = UIng::Box.new(:vertical, padded: true)
@@ -96,12 +112,12 @@ module MPDUI
         true
       end
 
-      @window            = window
+      @window = window
       @play_pause_button = play_pause_button
-      @title_label       = title_label
-      @subtitle_label    = subtitle_label
-      @time_label        = time_label
-      @progress_bar      = progress_bar
+      @title_label = title_label
+      @subtitle_label = subtitle_label
+      @time_label = time_label
+      @seek_slider = seek_slider
 
       connect
 
@@ -162,10 +178,10 @@ module MPDUI
       return unless client
 
       status = client.status
-      song   = client.currentsong
+      song = client.currentsong
 
-      state    = status.try(&.fetch("state", "stop")) || "stop"
-      @elapsed  = status.try(&.[]?("elapsed")).try(&.to_f?) || 0.0
+      state = status.try(&.fetch("state", "stop")) || "stop"
+      @elapsed = status.try(&.[]?("elapsed")).try(&.to_f?) || 0.0
       @duration = status.try(&.[]?("duration")).try(&.to_f?) || 0.0
 
       @play_pause_button.try(&.text = state == "play" ? "⏸" : "▶")
@@ -173,14 +189,13 @@ module MPDUI
       if song
         file = song["file"]?
 
-        title    = song["Title"]? || (file ? File.basename(file, File.extname(file)) : "Unknown")
-        artist   = song["Artist"]?
-        album    = song["Album"]?
+        title = song["Title"]? || (file ? File.basename(file, File.extname(file)) : "Unknown")
+        artist = song["Artist"]?
+        album = song["Album"]?
         subtitle = [artist, album].compact.join(" • ")
 
         @title_label.try(&.text = title)
         @subtitle_label.try(&.text = subtitle)
-
       else
         @title_label.try(&.text = state == "stop" ? "Stopped" : "No track")
         @subtitle_label.try(&.text = "")
@@ -196,11 +211,13 @@ module MPDUI
     end
 
     private def update_progress : Nil
-      elapsed  = @elapsed
+      return if @seeking
+
+      elapsed = @elapsed
       duration = @duration
 
       pct = duration > 0 ? ((elapsed / duration) * 100).clamp(0, 100).to_i : 0
-      @progress_bar.try(&.value = pct)
+      @seek_slider.try(&.value = pct)
       @time_label.try(&.text = "#{format_time(elapsed)} / #{format_time(duration)}")
     end
 
