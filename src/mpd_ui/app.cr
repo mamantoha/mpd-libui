@@ -2,18 +2,23 @@ require "uing"
 
 module MPDUI
   class App
-    WINDOW_TITLE  = "Crystal MPD"
-    WINDOW_WIDTH  = 420
-    WINDOW_HEIGHT = 120
+    WINDOW_TITLE = "Crystal MPD"
+    WINDOW_WIDTH = 560
+    WINDOW_HEIGHT = 100
 
     @settings : Settings
     @settings_window : SettingsWindow
     @window : UIng::Window?
     @play_pause_button : UIng::Button?
-    @track_label : UIng::Label?
+    @title_label : UIng::Label?
+    @subtitle_label : UIng::Label?
+    @time_label : UIng::Label?
+    @progress_bar : UIng::ProgressBar?
     @client : MPD::Client?
     @callback_client : MPD::Client?
     @callback_thread : Thread?
+    @elapsed : Float64 = 0.0
+    @duration : Float64 = 0.0
 
     def initialize
       @settings = Settings.load
@@ -49,24 +54,41 @@ module MPDUI
     private def build_ui : Nil
       window = UIng::Window.new(WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT, menubar: true, margined: true)
 
-      track_label = UIng::Label.new("Not connected")
+      prev_button       = UIng::Button.new("|<")
+      play_pause_button = UIng::Button.new("▶")
+      next_button       = UIng::Button.new(">|")
 
-      prev_button = UIng::Button.new("Prev")
-      play_pause_button = UIng::Button.new("Play")
-      next_button = UIng::Button.new("Next")
-
-      prev_button.on_clicked { mpd_action { |c| c.previous } }
+      prev_button.on_clicked       { mpd_action { |c| c.previous } }
       play_pause_button.on_clicked { toggle_play_pause }
-      next_button.on_clicked { mpd_action { |c| c.next } }
+      next_button.on_clicked       { mpd_action { |c| c.next } }
 
-      controls = UIng::Box.new(:horizontal, padded: true)
-      controls.append(prev_button)
-      controls.append(play_pause_button)
-      controls.append(next_button)
+      btn_box = UIng::Box.new(:horizontal, padded: true)
+      btn_box.append(prev_button)
+      btn_box.append(play_pause_button)
+      btn_box.append(next_button)
+
+      title_label    = UIng::Label.new("")
+      subtitle_label = UIng::Label.new("")
+
+      info_box = UIng::Box.new(:vertical, padded: false)
+      info_box.append(title_label, stretchy: true)
+      info_box.append(subtitle_label)
+
+      main_row = UIng::Box.new(:horizontal, padded: true)
+      main_row.append(btn_box)
+      main_row.append(info_box, stretchy: true)
+
+      progress_bar = UIng::ProgressBar.new
+      progress_bar.value = 0
+      time_label = UIng::Label.new("0:00 / 0:00")
+
+      progress_row = UIng::Box.new(:horizontal, padded: true)
+      progress_row.append(progress_bar, stretchy: true)
+      progress_row.append(time_label)
 
       root = UIng::Box.new(:vertical, padded: true)
-      root.append(track_label)
-      root.append(controls)
+      root.append(main_row, stretchy: true)
+      root.append(progress_row)
 
       window.child = root
       window.on_closing do
@@ -74,22 +96,28 @@ module MPDUI
         true
       end
 
-      @window = window
+      @window            = window
       @play_pause_button = play_pause_button
-      @track_label = track_label
+      @title_label       = title_label
+      @subtitle_label    = subtitle_label
+      @time_label        = time_label
+      @progress_bar      = progress_bar
 
       connect
+
+      # Repeating 1-second timer to keep the progress bar moving smoothly
+      UIng.timer(1000) do
+        update_progress
+        1
+      end
     end
 
     private def connect : Nil
       @client.try(&.disconnect)
       @callback_client.try(&.disconnect)
 
-      # Command client - used only from the UIng main thread
       @client = MPD::Client.new(@settings.host, @settings.port)
 
-      # Callback client - lives on its own thread so its fiber scheduler
-      # can run independently of UIng.main blocking the main thread
       host = @settings.host
       port = @settings.port
       @callback_thread = Thread.new do
@@ -100,17 +128,18 @@ module MPDUI
             UIng.queue_main { refresh_status }
           when .state?
             UIng.queue_main { sync_state(state) }
+          when .elapsed?
+            elapsed = state.to_f?
+            UIng.queue_main { @elapsed = elapsed.not_nil!; update_progress } if elapsed
           end
         end
         @callback_client = cb
-        # Keep thread alive; sleep yields to the fiber scheduler so the
-        # polling fiber spawned by with_callbacks can run between sleeps
         loop { sleep 1.second }
       end
 
       refresh_status
     rescue ex
-      @track_label.try(&.text = "Connection failed: #{ex.message}")
+      @title_label.try(&.text = "Connection failed: #{ex.message}")
     end
 
     private def reconnect : Nil
@@ -133,25 +162,51 @@ module MPDUI
       return unless client
 
       status = client.status
-      song = client.currentsong
+      song   = client.currentsong
 
-      state = status.try(&.fetch("state", "stop")) || "stop"
-      @play_pause_button.try(&.text = state == "play" ? "Pause" : "Play")
+      state    = status.try(&.fetch("state", "stop")) || "stop"
+      @elapsed  = status.try(&.[]?("elapsed")).try(&.to_f?) || 0.0
+      @duration = status.try(&.[]?("duration")).try(&.to_f?) || 0.0
+
+      @play_pause_button.try(&.text = state == "play" ? "⏸" : "▶")
 
       if song
-        title = song["Title"]? || song["file"]? || "Unknown"
-        artist = song["Artist"]?
-        label = artist ? "#{artist} - #{title}" : title
-        @track_label.try(&.text = label)
+        file = song["file"]?
+
+        title    = song["Title"]? || (file ? File.basename(file, File.extname(file)) : "Unknown")
+        artist   = song["Artist"]?
+        album    = song["Album"]?
+        subtitle = [artist, album].compact.join(" • ")
+
+        @title_label.try(&.text = title)
+        @subtitle_label.try(&.text = subtitle)
+
       else
-        @track_label.try(&.text = state == "stop" ? "Stopped" : "No track")
+        @title_label.try(&.text = state == "stop" ? "Stopped" : "No track")
+        @subtitle_label.try(&.text = "")
       end
+
+      update_progress
     rescue ex
-      @track_label.try(&.text = "Error: #{ex.message}")
+      @title_label.try(&.text = "Error: #{ex.message}")
     end
 
     private def sync_state(state : String) : Nil
-      @play_pause_button.try(&.text = state == "play" ? "Pause" : "Play")
+      @play_pause_button.try(&.text = state == "play" ? "⏸" : "▶")
+    end
+
+    private def update_progress : Nil
+      elapsed  = @elapsed
+      duration = @duration
+
+      pct = duration > 0 ? ((elapsed / duration) * 100).clamp(0, 100).to_i : 0
+      @progress_bar.try(&.value = pct)
+      @time_label.try(&.text = "#{format_time(elapsed)} / #{format_time(duration)}")
+    end
+
+    private def format_time(seconds : Float64) : String
+      t = seconds.to_i
+      "#{t // 60}:#{(t % 60).to_s.rjust(2, '0')}"
     end
 
     private def mpd_action(& : MPD::Client -> Nil) : Nil
@@ -160,7 +215,7 @@ module MPDUI
       yield client
       refresh_status
     rescue ex
-      @track_label.try(&.text = "Error: #{ex.message}")
+      @title_label.try(&.text = "Error: #{ex.message}")
     end
   end
 end
