@@ -48,19 +48,20 @@ module MPDUI
 
     private def build_widget : UIng::Box
       handler = UIng::Table::Model::Handler.new do
-        num_columns { 4 }
+        num_columns { 5 }
         column_type do |col|
-          col == 3 ? UIng::Table::Value::Type::Color : UIng::Table::Value::Type::String
+          col == 4 ? UIng::Table::Value::Type::Color : UIng::Table::Value::Type::String
         end
         num_rows { @songs.size }
         cell_value do |row, col|
           song = @songs[row]?
           next UIng::Table::Value.new("") unless song
           case col
-          when 0 then UIng::Table::Value.new(song[:artist])
-          when 1 then UIng::Table::Value.new(song[:title])
-          when 2 then UIng::Table::Value.new(format_duration(song[:time]))
-          when 3
+          when 0 then UIng::Table::Value.new(song[:active] ? "▶" : "")
+          when 1 then UIng::Table::Value.new(song[:artist])
+          when 2 then UIng::Table::Value.new(song[:title])
+          when 3 then UIng::Table::Value.new(format_duration(song[:time]))
+          when 4
             if song[:active]
               UIng::Table::Value.new(0.18, 0.45, 0.72, 0.4)
             else
@@ -77,12 +78,14 @@ module MPDUI
       model = UIng::Table::Model.new(handler)
       @model = model
 
-      table = UIng::Table.new(model, 3) do
-        append_text_column("Artist", 0, -1)
-        append_text_column("Title", 1, -1)
-        append_text_column("Time", 2, -1)
+      table = UIng::Table.new(model, 4) do
+        append_text_column("", 0, -1)
+        append_text_column("Artist", 1, -1)
+        append_text_column("Title", 2, -1)
+        append_text_column("Time", 3, -1)
       end
       @table = table
+      table.column_set_width(0, 20)
 
       table.on_row_double_clicked do |row|
         if id = @songs[row]?.try(&.[:id])

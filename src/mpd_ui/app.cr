@@ -282,6 +282,7 @@ module MPDUI
 
         @title_label.try(&.text = title)
         @subtitle_label.try(&.text = subtitle)
+        @window.try(&.title = artist ? "#{artist} — #{title}" : title)
 
         if file && file != @current_file
           @current_file = file
@@ -292,6 +293,7 @@ module MPDUI
         @image_view.try(&.image = @blank_image)
         @title_label.try(&.text = state == "stop" ? "Stopped" : "No track")
         @subtitle_label.try(&.text = "")
+        @window.try(&.title = WINDOW_TITLE)
       end
 
       update_progress
