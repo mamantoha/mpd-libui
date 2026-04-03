@@ -198,9 +198,15 @@ module MPDUI
 
       connect
 
-      # Repeating 0.5-second timer to keep the progress bar moving smoothly
+      # Repeating 0.5-second timer to keep the progress bar moving smoothly.
+      # If duration is still 0 while a song is loaded (transient state at song
+      # transition), re-fetch status so duration gets populated on the next tick.
       UIng.timer(500) do
-        update_progress
+        if @duration == 0.0 && !@current_file.empty?
+          refresh_status
+        else
+          update_progress
+        end
         1
       end
     end
