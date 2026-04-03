@@ -7,7 +7,7 @@ module MPDUI
     @table : UIng::Table?
     @handler : UIng::Table::Model::Handler?
     @box : UIng::Box?
-    @on_play : Proc(String, Nil) = ->(id : String) {}
+    @on_play : Proc(String, Nil) = ->(id : String) { }
 
     def widget : UIng::Box
       @box ||= build_widget
