@@ -1,11 +1,11 @@
-name: mpd-ui
+name: mpd-libui
 version: 0.1.0
 
 authors:
   - mamantoha <anton.maminov@gmail.com>
 
 targets:
-  mpd-ui:
+  mpd-libui:
     main: src/mpd_ui.cr
 
 dependencies:

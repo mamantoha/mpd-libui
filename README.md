@@ -28,11 +28,11 @@ _(coming soon)_
 ## Installation
 
 ```sh
-git clone https://github.com/mamantoha/mpd-ui
-cd mpd-ui
+git clone https://github.com/mamantoha/mpd-libui
+cd mpd-libui
 shards install
-crystal build src/mpd_ui.cr --release -o mpd-ui
-./mpd-ui
+crystal build src/mpd_ui.cr --release -o mpd-libui
+./mpd-libui
 ```
 
 ## Dependencies

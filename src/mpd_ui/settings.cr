@@ -13,11 +13,11 @@ module MPDUI
     def self.settings_path : String
       config_home = ENV["XDG_CONFIG_HOME"]?
       if config_home && !config_home.empty?
-        return File.join(config_home, "mpd-ui", "settings.json")
+        return File.join(config_home, "mpd-libui", "settings.json")
       end
 
       home = ENV["HOME"]? || "."
-      File.join(home, ".config", "mpd-ui", "settings.json")
+      File.join(home, ".config", "mpd-libui", "settings.json")
     end
 
     def self.load : Settings
