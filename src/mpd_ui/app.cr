@@ -143,7 +143,6 @@ module MPDUI
       @image_view = image_view
 
       connect
-      load_cover_png
 
       # Repeating 1-second timer to keep the progress bar moving smoothly
       UIng.timer(1000) do
@@ -223,6 +222,7 @@ module MPDUI
 
         if file && file != @current_file
           @current_file = file
+          load_cover_art_async(file)
         end
       else
         @current_file = ""
@@ -256,31 +256,106 @@ module MPDUI
       "#{t // 60}:#{(t % 60).to_s.rjust(2, '0')}"
     end
 
-    private def load_cover_png : Nil
-      path = File.join(__DIR__, "..", "..", "cover.png")
-      return unless File.exists?(path)
+    private def load_cover_art_async(uri : String) : Nil
+      host = @settings.host
+      port = @settings.port
 
-      canvas = StumpyPNG.read(path)
-      width = canvas.width.to_i32
-      height = canvas.height.to_i32
+      Thread.new do
+        begin
+          art_client = MPD::Client.new(host, port)
 
-      pixels = Bytes.new(width * height * 4)
-      (0...height).each do |y|
-        (0...width).each do |x|
-          offset = (y * width + x) * 4
-          r, g, b, a = canvas[x, y].to_rgba
-          pixels[offset] = r.to_u8
-          pixels[offset + 1] = g.to_u8
-          pixels[offset + 2] = b.to_u8
-          pixels[offset + 3] = a.to_u8
+          response = begin
+            art_client.readpicture(uri)
+          rescue
+            nil
+          end
+
+          response ||= begin
+            art_client.albumart(uri)
+          rescue
+            nil
+          end
+
+          art_client.disconnect
+
+          if response
+            meta, io = response
+            mime = meta["type"]? || ""
+
+            canvas = case mime
+                     when "image/jpeg", "image/jpg"
+                       tmp = File.tempfile("mpd_cover", ".jpg")
+                       tmp.write(io.to_slice)
+                       tmp.flush
+                       path = tmp.path
+                       tmp.close
+                       begin
+                         StumpyJPEG.read(path)
+                       ensure
+                         File.delete(path) rescue nil
+                       end
+                     when "image/png"
+                       tmp = File.tempfile("mpd_cover", ".png")
+                       tmp.write(io.to_slice)
+                       tmp.flush
+                       path = tmp.path
+                       tmp.close
+                       begin
+                         StumpyPNG.read(path)
+                       ensure
+                         File.delete(path) rescue nil
+                       end
+                     else
+                       STDERR.puts "Cover art: unsupported MIME type #{mime.inspect}"
+                       nil
+                     end
+
+            if canvas
+              width = canvas.width.to_i32
+              height = canvas.height.to_i32
+
+              pixels = Bytes.new(width * height * 4)
+              (0...height).each do |y|
+                (0...width).each do |x|
+                  offset = (y * width + x) * 4
+                  r, g, b, a = canvas[x, y].to_rgba
+                  pixels[offset] = r.to_u8
+                  pixels[offset + 1] = g.to_u8
+                  pixels[offset + 2] = b.to_u8
+                  pixels[offset + 3] = a.to_u8
+                end
+              end
+
+              image = UIng::Image.new(width, height)
+              image.append(pixels, width, height, width * 4)
+
+              UIng.queue_main do
+                if @current_file == uri
+                  @cover_image.try(&.free)
+                  @cover_image = image
+                  @image_view.try(&.image = image)
+                else
+                  image.free
+                end
+              end
+            else
+              UIng.queue_main do
+                @cover_image.try(&.free)
+                @cover_image = nil
+                @image_view.try(&.image = @blank_image)
+              end
+            end
+          else
+            UIng.queue_main do
+              @cover_image.try(&.free)
+              @cover_image = nil
+              @image_view.try(&.image = @blank_image)
+            end
+          end
+        rescue ex
+          STDERR.puts "Cover art error: #{ex.message}"
         end
       end
-
-      image = UIng::Image.new(width, height)
-      image.append(pixels, width, height, width * 4)
-      @cover_image.try(&.free)
-      @cover_image = image
-      @image_view.try(&.image = image)
     end
 
     private def mpd_action(& : MPD::Client -> Nil) : Nil
