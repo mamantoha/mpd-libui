@@ -138,9 +138,14 @@ module MPDUI
       progress_row.append(seek_slider, stretchy: true)
       progress_row.append(time_label)
 
+      controls_row = UIng::Box.new(:horizontal, padded: false)
+      controls_row.append(UIng::Box.new(:horizontal, padded: false), stretchy: true)
+      controls_row.append(btn_box)
+      controls_row.append(UIng::Box.new(:horizontal, padded: false), stretchy: true)
+
       root = UIng::Box.new(:vertical, padded: true)
       root.append(main_row, stretchy: true)
-      root.append(btn_box)
+      root.append(controls_row)
       root.append(progress_row)
 
       window.child = root
