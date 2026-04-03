@@ -10,7 +10,7 @@ module MPDUI
 
     @settings : Settings
     @settings_window : SettingsWindow
-    @playlist_window : PlaylistView
+    @playlist_view : PlaylistView
     @window : UIng::Window?
     @play_pause_button : UIng::Button?
     @title_label : UIng::Label?
@@ -46,8 +46,8 @@ module MPDUI
     def initialize
       @settings = Settings.load
       @settings_window = SettingsWindow.new(@settings, -> { reconnect })
-      @playlist_window = PlaylistView.new
-      @playlist_window.on_play { |id| mpd_action { |c| c.playid(id.to_i) } }
+      @playlist_view = PlaylistView.new
+      @playlist_view.on_play { |id| mpd_action { |c| c.playid(id.to_i) } }
     end
 
     def run : Nil
@@ -176,11 +176,11 @@ module MPDUI
 
       root = UIng::Box.new(:vertical, padded: true)
       root.append(header_row)
-      root.append(@playlist_window.widget, stretchy: true)
+      root.append(@playlist_view.widget, stretchy: true)
 
       window.child = root
       window.on_closing do
-        @playlist_window.free
+        @playlist_view.free
         UIng.quit
         true
       end
@@ -429,7 +429,7 @@ module MPDUI
           }
         end
       end
-      @playlist_window.update(songs)
+      @playlist_view.update(songs)
     rescue ex
       STDERR.puts "Playlist error: #{ex.message}"
     end
