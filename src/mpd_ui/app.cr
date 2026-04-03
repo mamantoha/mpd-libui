@@ -33,14 +33,14 @@ module MPDUI
     @repeat : Bool = false
 
     MEDIA_CONTROL_SYMBOLS = {
-      play:        "▶",
-      pause:       "⏸",
-      stop:        "■",
-      prev:        "⏮",
-      next:        "⏭",
+      play:        "▶️",
+      pause:       "⏸️",
+      stop:        "⏹️",
+      prev:        "⏮️",
+      next:        "⏭️",
       shuffle:     "🔀",
-      repeat:      "🔁",
-      repeat_once: "🔂",
+      repeat:      "🔁️",
+      repeat_once: "🔂️",
     }
 
     def initialize
