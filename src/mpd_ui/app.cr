@@ -3,6 +3,7 @@ require "uing"
 module MPDUI
   class App
     COVER_SIZE    = 120
+    NAME = "MPD libui example"
     WINDOW_TITLE  = "Crystal MPD"
     WINDOW_WIDTH  = 640
     WINDOW_HEIGHT = 600
@@ -64,7 +65,7 @@ module MPDUI
     end
 
     private def about_text : String
-      lines = ["Crystal MPD v#{VERSION}", ""]
+      lines = ["#{NAME} v#{VERSION}", ""]
       if client = @client
         lines << "MPD version: #{client.version}"
         if mpd_stats = client.stats
@@ -79,7 +80,7 @@ module MPDUI
       end
       lines.join("\n")
     rescue
-      "Crystal MPD v#{VERSION}"
+      "#{NAME} v#{VERSION}"
     end
 
     private def build_menu : Nil
@@ -88,7 +89,7 @@ module MPDUI
           @settings_window.open(@window)
         end
         append_about_item.on_clicked do |w|
-          w.msg_box("About Crystal MPD", about_text)
+          w.msg_box("About #{NAME}", about_text)
         end
       end
     end
