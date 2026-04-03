@@ -97,7 +97,7 @@ module MPDUI
       info_box.append(subtitle_label)
 
       main_row = UIng::Box.new(:horizontal, padded: true)
-      main_row.append(image_view)
+      main_row.append(image_view, stretchy: true)
       main_row.append(btn_box)
       main_row.append(info_box, stretchy: true)
 
