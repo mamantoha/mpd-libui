@@ -15,6 +15,8 @@ module MPDUI
     @subtitle_label : UIng::Label?
     @time_label : UIng::Label?
     @seek_slider : UIng::Slider?
+    @shuffle_button : UIng::Button?
+    @repeat_button : UIng::Button?
     @image_view : UIng::ImageView?
     @blank_image : UIng::Image?
     @cover_image : UIng::Image?
@@ -25,13 +27,18 @@ module MPDUI
     @elapsed : Float64 = 0.0
     @duration : Float64 = 0.0
     @seeking : Bool = false
+    @random : Bool = false
+    @repeat : Bool = false
 
     MEDIA_CONTROL_SYMBOLS = {
-      play:  "▶",
-      pause: "⏸",
-      stop:  "■",
-      prev:  "⏮",
-      next:  "⏭",
+      play:        "▶",
+      pause:       "⏸",
+      stop:        "■",
+      prev:        "⏮",
+      next:        "⏭",
+      shuffle:     "🔀",
+      repeat:      "🔁",
+      repeat_once: "🔂",
     }
 
     def initialize
@@ -80,14 +87,22 @@ module MPDUI
       play_pause_button = UIng::Button.new(MEDIA_CONTROL_SYMBOLS[:play])
       next_button = UIng::Button.new(MEDIA_CONTROL_SYMBOLS[:next])
 
+      shuffle_button = UIng::Button.new(MEDIA_CONTROL_SYMBOLS[:shuffle])
+      repeat_button = UIng::Button.new(MEDIA_CONTROL_SYMBOLS[:repeat])
+
       prev_button.on_clicked { mpd_action { |c| c.previous } }
       play_pause_button.on_clicked { toggle_play_pause }
       next_button.on_clicked { mpd_action { |c| c.next } }
 
+      shuffle_button.on_clicked { toggle_random }
+      repeat_button.on_clicked { toggle_repeat }
+
       btn_box = UIng::Box.new(:horizontal, padded: true)
+      btn_box.append(shuffle_button)
       btn_box.append(prev_button)
       btn_box.append(play_pause_button)
       btn_box.append(next_button)
+      btn_box.append(repeat_button)
 
       title_label = UIng::Label.new("")
       subtitle_label = UIng::Label.new("")
@@ -140,6 +155,8 @@ module MPDUI
       @subtitle_label = subtitle_label
       @time_label = time_label
       @seek_slider = seek_slider
+      @shuffle_button = shuffle_button
+      @repeat_button = repeat_button
       @image_view = image_view
 
       connect
@@ -167,6 +184,10 @@ module MPDUI
             UIng.queue_main { refresh_status }
           when .state?
             UIng.queue_main { sync_state(state) }
+          when .random?
+            UIng.queue_main { @random = state == "1"; sync_toggle_buttons }
+          when .repeat?
+            UIng.queue_main { @repeat = state == "1"; sync_toggle_buttons }
           when .elapsed?
             elapsed = state.to_f?
             UIng.queue_main { @elapsed = elapsed.not_nil!; update_progress } if elapsed
@@ -206,8 +227,11 @@ module MPDUI
       state = status.try(&.fetch("state", "stop")) || "stop"
       @elapsed = status.try(&.[]?("elapsed")).try(&.to_f?) || 0.0
       @duration = status.try(&.[]?("duration")).try(&.to_f?) || 0.0
+      @random = status.try(&.[]?("random")) == "1"
+      @repeat = status.try(&.[]?("repeat")) == "1"
 
       @play_pause_button.try(&.text = state == "play" ? MEDIA_CONTROL_SYMBOLS[:pause] : MEDIA_CONTROL_SYMBOLS[:play])
+      sync_toggle_buttons
 
       if song
         file = song["file"]?
@@ -356,6 +380,19 @@ module MPDUI
           STDERR.puts "Cover art error: #{ex.message}"
         end
       end
+    end
+
+    private def toggle_random : Nil
+      mpd_action { |c| c.random(!@random) }
+    end
+
+    private def toggle_repeat : Nil
+      mpd_action { |c| c.repeat(!@repeat) }
+    end
+
+    private def sync_toggle_buttons : Nil
+      @shuffle_button.try(&.text = @random ? "[#{MEDIA_CONTROL_SYMBOLS[:shuffle]}]" : MEDIA_CONTROL_SYMBOLS[:shuffle])
+      @repeat_button.try(&.text = @repeat ? "[#{MEDIA_CONTROL_SYMBOLS[:repeat]}]" : MEDIA_CONTROL_SYMBOLS[:repeat])
     end
 
     private def mpd_action(& : MPD::Client -> Nil) : Nil
