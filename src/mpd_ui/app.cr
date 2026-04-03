@@ -2,7 +2,7 @@ require "uing"
 
 module MPDUI
   class App
-    COVER_SIZE    = 80
+    COVER_SIZE    = 120
     WINDOW_TITLE  = "Crystal MPD"
     WINDOW_WIDTH  = 640
     WINDOW_HEIGHT = 600
@@ -85,6 +85,10 @@ module MPDUI
       blank_image.append(blank_pixels, COVER_SIZE, COVER_SIZE, COVER_SIZE * 4)
       @blank_image = blank_image
       image_view = UIng::ImageView.new(blank_image, :fit)
+      img_container = UIng::Box.new(:vertical, padded: false)
+      img_container.append(image_view, stretchy: true)
+      ic_gtk = UIng::LibUI.control_handle(img_container.to_unsafe.as(Pointer(UIng::LibUI::Control)))
+      LibGTK.gtk_widget_set_size_request(ic_gtk, COVER_SIZE, COVER_SIZE)
 
       prev_button = UIng::Button.new(MEDIA_CONTROL_SYMBOLS[:prev])
       play_pause_button = UIng::Button.new(MEDIA_CONTROL_SYMBOLS[:play])
@@ -114,10 +118,6 @@ module MPDUI
       info_box.append(title_label, stretchy: false)
       info_box.append(subtitle_label)
 
-      main_row = UIng::Box.new(:horizontal, padded: true)
-      main_row.append(image_view, stretchy: true)
-      main_row.append(info_box, stretchy: true)
-
       seek_slider = UIng::Slider.new(0, 100)
       seek_slider.value = 0
       seek_slider.has_tool_tip = false
@@ -146,10 +146,19 @@ module MPDUI
       controls_row.append(btn_box)
       controls_row.append(UIng::Box.new(:horizontal, padded: false), stretchy: true)
 
+      # Right column: info on top, controls in middle, progress at bottom
+      right_col = UIng::Box.new(:vertical, padded: true)
+      right_col.append(info_box, stretchy: true)
+      right_col.append(controls_row)
+      right_col.append(progress_row)
+
+      # Header: cover on the left, right column takes remaining space
+      header_row = UIng::Box.new(:horizontal, padded: true)
+      header_row.append(img_container)
+      header_row.append(right_col, stretchy: true)
+
       root = UIng::Box.new(:vertical, padded: true)
-      root.append(main_row)
-      root.append(controls_row)
-      root.append(progress_row)
+      root.append(header_row)
       root.append(@playlist_window.widget, stretchy: true)
 
       window.child = root
