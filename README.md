@@ -1,10 +1,10 @@
-# Crystal MPD
+# Crystal MPD libui
 
 A desktop [MPD](https://www.musicpd.org/) client written in [Crystal](https://crystal-lang.org/) using the [UIng](https://github.com/kojix2/uing) (libui-ng) GUI library.
 
 ## Screenshots
 
-_(coming soon)_
+![Player](screenshot.png)
 
 ## Features
 
