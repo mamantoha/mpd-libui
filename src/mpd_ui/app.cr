@@ -5,10 +5,11 @@ module MPDUI
     COVER_SIZE    = 80
     WINDOW_TITLE  = "Crystal MPD"
     WINDOW_WIDTH  = 640
-    WINDOW_HEIGHT = 480
+    WINDOW_HEIGHT = 600
 
     @settings : Settings
     @settings_window : SettingsWindow
+    @playlist_window : PlaylistView
     @window : UIng::Window?
     @play_pause_button : UIng::Button?
     @title_label : UIng::Label?
@@ -44,6 +45,8 @@ module MPDUI
     def initialize
       @settings = Settings.load
       @settings_window = SettingsWindow.new(@settings, -> { reconnect })
+      @playlist_window = PlaylistView.new
+      @playlist_window.on_play { |id| mpd_action { |c| c.playid(id.to_i) } }
     end
 
     def run : Nil
@@ -144,12 +147,14 @@ module MPDUI
       controls_row.append(UIng::Box.new(:horizontal, padded: false), stretchy: true)
 
       root = UIng::Box.new(:vertical, padded: true)
-      root.append(main_row, stretchy: true)
+      root.append(main_row)
       root.append(controls_row)
       root.append(progress_row)
+      root.append(@playlist_window.widget, stretchy: true)
 
       window.child = root
       window.on_closing do
+        @playlist_window.free
         UIng.quit
         true
       end
@@ -186,13 +191,15 @@ module MPDUI
         cb.on_callback do |event, state|
           case event
           when .song?
-            UIng.queue_main { refresh_status }
+            UIng.queue_main { refresh_status; load_playlist }
           when .state?
             UIng.queue_main { sync_state(state) }
           when .random?
             UIng.queue_main { @random = state == "1"; sync_toggle_buttons }
           when .repeat?
             UIng.queue_main { @repeat = state == "1"; sync_toggle_buttons }
+          when .playlist?
+            UIng.queue_main { load_playlist }
           when .elapsed?
             elapsed = state.to_f?
             UIng.queue_main { @elapsed = elapsed.not_nil!; update_progress } if elapsed
@@ -203,6 +210,7 @@ module MPDUI
       end
 
       refresh_status
+      load_playlist
     rescue ex
       @title_label.try(&.text = "Connection failed: #{ex.message}")
     end
@@ -385,6 +393,28 @@ module MPDUI
           STDERR.puts "Cover art error: #{ex.message}"
         end
       end
+    end
+
+    private def load_playlist : Nil
+      client = @client
+      return unless client
+
+      current_id = client.currentsong.try(&.[]?("Id"))
+      songs = [] of PlaylistView::Song
+      if data = client.playlistinfo
+        data.each do |song|
+          songs << {
+            title:  song["Title"]? || File.basename(song["file"]? || "", File.extname(song["file"]? || "")),
+            artist: song["Artist"]? || "",
+            time:   song["Time"]? || "0",
+            active: song["Id"]? == current_id,
+            id:     song["Id"]? || "",
+          }
+        end
+      end
+      @playlist_window.update(songs)
+    rescue ex
+      STDERR.puts "Playlist error: #{ex.message}"
     end
 
     private def sync_toggle_buttons : Nil
