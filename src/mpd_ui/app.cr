@@ -345,19 +345,7 @@ module MPDUI
 
           if response
             meta, io = response
-            mime = meta["type"]? || ""
-
-            canvas = case mime
-                     when "image/jpeg", "image/jpg"
-                       io.rewind
-                       StumpyJPEG.read(io)
-                     when "image/png"
-                       io.rewind
-                       StumpyPNG.read(io)
-                     else
-                       STDERR.puts "Cover art: unsupported MIME type #{mime.inspect}"
-                       nil
-                     end
+            canvas = ImageLoader.read(io, meta["type"]?)
 
             if canvas
               width = canvas.width.to_i32
