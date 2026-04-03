@@ -63,16 +63,32 @@ module MPDUI
       UIng.uninit
     end
 
+    private def about_text : String
+      lines = ["Crystal MPD v#{VERSION}", ""]
+      if client = @client
+        lines << "MPD version: #{client.version}"
+        if mpd_stats = client.stats
+          lines << "Artists: #{mpd_stats["artists"]}"
+          lines << "Albums:  #{mpd_stats["albums"]}"
+          lines << "Songs:   #{mpd_stats["songs"]}"
+          lines << "Uptime:       #{mpd_stats["uptime"].to_i.seconds}"
+          lines << "Playtime:     #{mpd_stats["playtime"].to_i.seconds}"
+          lines << "DB playtime:  #{mpd_stats["db_playtime"].to_i.seconds}"
+          lines << "DB updated:   #{Time.unix(mpd_stats["db_update"].to_i)}"
+        end
+      end
+      lines.join("\n")
+    rescue
+      "Crystal MPD v#{VERSION}"
+    end
+
     private def build_menu : Nil
       UIng::Menu.new("File") do
         append_preferences_item.on_clicked do |_|
           @settings_window.open(@window)
         end
         append_about_item.on_clicked do |w|
-          w.msg_box(
-            "About Crystal MPD",
-            "Crystal MPD v#{VERSION}\nA simple MPD client built with Crystal and UIng."
-          )
+          w.msg_box("About Crystal MPD", about_text)
         end
       end
     end
@@ -180,8 +196,8 @@ module MPDUI
 
       connect
 
-      # Repeating 1-second timer to keep the progress bar moving smoothly
-      UIng.timer(1000) do
+      # Repeating 0.5-second timer to keep the progress bar moving smoothly
+      UIng.timer(500) do
         update_progress
         1
       end
