@@ -108,7 +108,7 @@ module MPDUI
       subtitle_label = UIng::Label.new("")
 
       info_box = UIng::Box.new(:vertical, padded: false)
-      info_box.append(title_label, stretchy: true)
+      info_box.append(title_label, stretchy: false)
       info_box.append(subtitle_label)
 
       main_row = UIng::Box.new(:horizontal, padded: true)
