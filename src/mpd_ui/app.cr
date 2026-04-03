@@ -32,6 +32,7 @@ module MPDUI
     @random : Bool = false
     @repeat : Bool = false
 
+    # https://en.wikipedia.org/wiki/Media_control_symbols
     MEDIA_CONTROL_SYMBOLS = {
       play:        "▶️",
       pause:       "⏸️",
