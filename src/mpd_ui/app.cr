@@ -349,27 +349,11 @@ module MPDUI
 
             canvas = case mime
                      when "image/jpeg", "image/jpg"
-                       tmp = File.tempfile("mpd_cover", ".jpg")
-                       tmp.write(io.to_slice)
-                       tmp.flush
-                       path = tmp.path
-                       tmp.close
-                       begin
-                         StumpyJPEG.read(path)
-                       ensure
-                         File.delete(path) rescue nil
-                       end
+                       io.rewind
+                       StumpyJPEG.read(io)
                      when "image/png"
-                       tmp = File.tempfile("mpd_cover", ".png")
-                       tmp.write(io.to_slice)
-                       tmp.flush
-                       path = tmp.path
-                       tmp.close
-                       begin
-                         StumpyPNG.read(path)
-                       ensure
-                         File.delete(path) rescue nil
-                       end
+                       io.rewind
+                       StumpyPNG.read(io)
                      else
                        STDERR.puts "Cover art: unsupported MIME type #{mime.inspect}"
                        nil
